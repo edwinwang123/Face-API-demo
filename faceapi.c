@@ -9,7 +9,6 @@ static char login = 0;		// check if user have logged in
 void setUriParam(CURLU * curlu, const char * name, struct json_object * value);
 void setUriBase(CURLU * curlu, const char * base);
 int statusOk(long status);
-int reg_result_append(RegResultTable * table, RegResult * item);
 int detect_result_append(DetectResultTable * table, DetectResult * item);
 int ident_result_append(IdentResultTable * table, IdentResult * item);
 
@@ -186,7 +185,6 @@ long face_create_pg(char * pgid, struct json_object * body, struct json_object *
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 
 	errno = 0;						// setting errno for error detection
 
@@ -248,8 +246,19 @@ long face_create_pg(char * pgid, struct json_object * body, struct json_object *
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -257,11 +266,6 @@ long face_create_pg(char * pgid, struct json_object * body, struct json_object *
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -271,10 +275,9 @@ long face_create_pg(char * pgid, struct json_object * body, struct json_object *
 	curl_url_cleanup(curlu);
 	curl_global_cleanup();
 
-	// printing http status code and latency
+	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -312,7 +315,6 @@ long face_detect(struct json_object * param, struct json_object * body, struct j
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 	
 	errno = 0;						// setting errno for error detection
 
@@ -375,8 +377,19 @@ long face_detect(struct json_object * param, struct json_object * body, struct j
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -384,11 +397,6 @@ long face_detect(struct json_object * param, struct json_object * body, struct j
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -401,7 +409,6 @@ long face_detect(struct json_object * param, struct json_object * body, struct j
 	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -440,7 +447,6 @@ long face_detect_local(FILE * image, size_t fsize, json_object * param, struct j
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 	
 	errno = 0;						// setting errno for error detection
 
@@ -512,8 +518,19 @@ long face_detect_local(FILE * image, size_t fsize, json_object * param, struct j
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -521,11 +538,6 @@ long face_detect_local(FILE * image, size_t fsize, json_object * param, struct j
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -538,7 +550,6 @@ long face_detect_local(FILE * image, size_t fsize, json_object * param, struct j
 	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -577,7 +588,6 @@ long face_verify(struct json_object * body, struct json_object ** resp) {
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 	
 	errno = 0;						// setting errno for error detection
 
@@ -633,8 +643,19 @@ long face_verify(struct json_object * body, struct json_object ** resp) {
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -642,11 +663,6 @@ long face_verify(struct json_object * body, struct json_object ** resp) {
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -659,7 +675,6 @@ long face_verify(struct json_object * body, struct json_object ** resp) {
 	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -697,7 +712,6 @@ long face_identify(struct json_object * body, struct json_object ** resp) {
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 	
 	errno = 0;						// setting errno for error detection
 
@@ -753,8 +767,19 @@ long face_identify(struct json_object * body, struct json_object ** resp) {
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -762,11 +787,6 @@ long face_identify(struct json_object * body, struct json_object ** resp) {
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -779,7 +799,6 @@ long face_identify(struct json_object * body, struct json_object ** resp) {
 	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -817,7 +836,6 @@ long face_create_p(char * pgid, struct json_object * body, struct json_object **
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 	
 	errno = 0;						// setting errno for error detection
 
@@ -878,8 +896,19 @@ long face_create_p(char * pgid, struct json_object * body, struct json_object **
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -887,11 +916,6 @@ long face_create_p(char * pgid, struct json_object * body, struct json_object **
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -901,10 +925,9 @@ long face_create_p(char * pgid, struct json_object * body, struct json_object **
 	curl_url_cleanup(curlu);
 	curl_global_cleanup();
 
-	// printing http status code and latency
+	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -944,7 +967,6 @@ long face_add_face(char * pgid, char * pid, struct json_object * param, struct j
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 	
 	errno = 0;						// setting errno for error detection
 
@@ -1021,8 +1043,19 @@ long face_add_face(char * pgid, char * pid, struct json_object * param, struct j
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -1030,11 +1063,6 @@ long face_add_face(char * pgid, char * pid, struct json_object * param, struct j
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -1044,10 +1072,9 @@ long face_add_face(char * pgid, char * pid, struct json_object * param, struct j
 	curl_url_cleanup(curlu);
 	curl_global_cleanup();
 
-	// printing http status code and latency
+	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -1088,7 +1115,6 @@ long face_add_face_local(FILE * image, size_t fsize, char * pgid, char * pid, st
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 	
 	errno = 0;						// setting errno for error detection
 
@@ -1173,8 +1199,19 @@ long face_add_face_local(FILE * image, size_t fsize, char * pgid, char * pid, st
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -1182,11 +1219,6 @@ long face_add_face_local(FILE * image, size_t fsize, char * pgid, char * pid, st
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -1196,10 +1228,9 @@ long face_add_face_local(FILE * image, size_t fsize, char * pgid, char * pid, st
 	curl_url_cleanup(curlu);
 	curl_global_cleanup();
 
-	// printing http status code and latency
+	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -1238,7 +1269,6 @@ long face_delete_face(char * pgid, char * pid, char * fid, struct json_object **
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 	
 	errno = 0;						// setting errno for error detection
 
@@ -1304,8 +1334,19 @@ long face_delete_face(char * pgid, char * pid, char * fid, struct json_object **
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -1313,11 +1354,6 @@ long face_delete_face(char * pgid, char * pid, char * fid, struct json_object **
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -1330,7 +1366,6 @@ long face_delete_face(char * pgid, char * pid, char * fid, struct json_object **
 	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -1368,7 +1403,6 @@ long face_delete_p(char * pgid, char * pid, struct json_object ** resp) {
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 	
 	errno = 0;						// setting errno for error detection
 
@@ -1426,8 +1460,19 @@ long face_delete_p(char * pgid, char * pid, struct json_object ** resp) {
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -1435,11 +1480,6 @@ long face_delete_p(char * pgid, char * pid, struct json_object ** resp) {
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -1449,10 +1489,9 @@ long face_delete_p(char * pgid, char * pid, struct json_object ** resp) {
 	curl_url_cleanup(curlu);
 	curl_global_cleanup();
 
-	// printing http status code and latency
+	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -1489,7 +1528,6 @@ long face_delete_pg(char * pgid, struct json_object ** resp) {
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 	
 	errno = 0;						// setting errno for error detection
 
@@ -1539,8 +1577,19 @@ long face_delete_pg(char * pgid, struct json_object ** resp) {
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -1548,11 +1597,6 @@ long face_delete_pg(char * pgid, struct json_object ** resp) {
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -1562,10 +1606,9 @@ long face_delete_pg(char * pgid, struct json_object ** resp) {
 	curl_url_cleanup(curlu);
 	curl_global_cleanup();
 
-	// printing http status code and latency
+	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -1602,7 +1645,6 @@ long face_get_pg(char * pgid, struct json_object ** resp) {
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 	
 	errno = 0;						// setting errno for error detection
 
@@ -1655,8 +1697,19 @@ long face_get_pg(char * pgid, struct json_object ** resp) {
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -1664,11 +1717,6 @@ long face_get_pg(char * pgid, struct json_object ** resp) {
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -1678,10 +1726,9 @@ long face_get_pg(char * pgid, struct json_object ** resp) {
 	curl_url_cleanup(curlu);
 	curl_global_cleanup();
 
-	// printing http status code and latency
+	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -1719,7 +1766,6 @@ long face_get_p(char * pgid, char * pid, struct json_object ** resp) {
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 	
 	errno = 0;						// setting errno for error detection
 
@@ -1777,8 +1823,19 @@ long face_get_p(char * pgid, char * pid, struct json_object ** resp) {
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -1786,11 +1843,6 @@ long face_get_p(char * pgid, char * pid, struct json_object ** resp) {
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -1800,10 +1852,9 @@ long face_get_p(char * pgid, char * pid, struct json_object ** resp) {
 	curl_url_cleanup(curlu);
 	curl_global_cleanup();
 
-	// printing http status code and latency
+	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -1842,8 +1893,7 @@ long face_get_face(char * pgid, char * pid, char * fid, struct json_object ** re
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
-
+	
 	errno = 0;						// setting errno for error detection
 
 	// check if region and key are initialized
@@ -1908,8 +1958,19 @@ long face_get_face(char * pgid, char * pid, char * fid, struct json_object ** re
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -1917,11 +1978,6 @@ long face_get_face(char * pgid, char * pid, char * fid, struct json_object ** re
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -1931,10 +1987,9 @@ long face_get_face(char * pgid, char * pid, char * fid, struct json_object ** re
 	curl_url_cleanup(curlu);
 	curl_global_cleanup();
 
-	// printing http status code and latency
+	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -1971,8 +2026,7 @@ long face_train_pg(char * pgid, struct json_object ** resp) {
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
-
+	
 	errno = 0;						// setting errno for error detection
 
 	// check if region and key are initialized
@@ -2029,8 +2083,19 @@ long face_train_pg(char * pgid, struct json_object ** resp) {
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -2038,11 +2103,6 @@ long face_train_pg(char * pgid, struct json_object ** resp) {
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -2052,10 +2112,9 @@ long face_train_pg(char * pgid, struct json_object ** resp) {
 	curl_url_cleanup(curlu);
 	curl_global_cleanup();
 
-	// printing http status code and latency
+	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -2093,7 +2152,6 @@ long face_list_p(char * pgid, struct json_object ** resp) {
 	char * url;						// the request url
 	char buffer[BUFSIZ] = {0};		// buffer for url parsing
 	long ret;						// response http status code
-	double lat;						// latency
 	
 	errno = 0;						// setting errno for error detection
 
@@ -2147,8 +2205,19 @@ long face_list_p(char * pgid, struct json_object ** resp) {
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+		// record time for latency checking
+#ifdef _DEBUG_
+		clock_t start = clock();
+#endif
+
 		/* Perform the request, res will get the return code */ 
 		res = curl_easy_perform(curl);
+
+		// calculate latency
+#ifdef _DEBUG_
+		clock_t end = clock();
+		fprintf(stderr, FACE_LATENCY, ((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
 
 		/* Check for errors */
 		if(res != CURLE_OK)
@@ -2156,11 +2225,6 @@ long face_list_p(char * pgid, struct json_object ** resp) {
 
 		// acquire http status code
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-
-#ifdef _DEBUG_
-		// acquire latency
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &lat);
-#endif
 
 		curl_slist_free_all(plist);
 
@@ -2170,10 +2234,9 @@ long face_list_p(char * pgid, struct json_object ** resp) {
 	curl_url_cleanup(curlu);
 	curl_global_cleanup();
 
-	// printing http status code and latency
+	// printing http status code
 #ifdef _DEBUG_
 	fprintf(stderr, FACE_HTTP_STATUS, ret);
-	fprintf(stderr, FACE_LATENCY, lat);
 #endif
 
 	// null terminating the response string
@@ -2191,19 +2254,13 @@ long face_list_p(char * pgid, struct json_object ** resp) {
 	return ret;
 }
 
-int demo_register(FILE * image, size_t fsize, RegResultTable * table) {
+int demo_register(FILE * image, size_t fsize, char * pid) {
 	char * pgName = "demo_group_1";			// default persongroup name	
 	char * pName = "demo_person";			// default person name
 	json_object * body;						// request body
-	json_object * param;					// request parameter
-	json_object * detect_resp;				// response from detect
 	json_object * resp;						// response from api call
 	json_object * tmp_obj;					// temporary json object
 	long status;							// HTTP request status code
-	int len;								// length of the response array
-	RegResult reg_result = {0};				// stores result of registration
-	char buffer[BUFSIZ] = {0};				// string buffer
-	int i;
 
 	// creating the request body for create_pg
 	body = json_object_new_object();
@@ -2212,82 +2269,36 @@ int demo_register(FILE * image, size_t fsize, RegResultTable * table) {
 	// creating the default person group if it is not already created
 	face_create_pg(FACE_DEMO_PGID, body, &resp);
 
-	// detect the image to check for number and location of faces
-	status = face_detect_local(image, fsize, NULL, &detect_resp);
+	// creating the request body for create_p
+	json_object_put(body);
+	body = json_object_new_object();
+	json_object_object_add(body, "name", json_object_new_string(pName));
 
-	if(detect_resp != NULL && table != NULL && statusOk(status)){
-		len = json_object_array_length(detect_resp);
-		for (i = 0; i < len; ++i) {
-			json_object * mem = NULL;
-			json_object *detect_rect = NULL;
-			mem = json_object_array_get_idx(detect_resp, i);
-			if(mem != NULL){
-				json_object *top = NULL, *left = NULL, *width = NULL, *height = NULL;
-				json_object_object_get_ex(mem, "faceRectangle", &detect_rect);
-				if(detect_rect != NULL){
-					json_object_object_get_ex(detect_rect, "top", &top);
-					json_object_object_get_ex(detect_rect, "left", &left);
-					json_object_object_get_ex(detect_rect, "width", &width);
-					json_object_object_get_ex(detect_rect, "height", &height);
-					if(top != NULL && left != NULL && width != NULL && height != NULL){
-						reg_result.rt.x = json_object_get_int(left);
-						reg_result.rt.y = json_object_get_int(top);
-						reg_result.rt.width = json_object_get_int(width);
-						reg_result.rt.height = json_object_get_int(height);
-					}
-					else
-						printf("top or left or width or height is null\n");
-				}
-				else
-					printf("detect_rect is null\n");
-			}
-			else
-				printf("mem is null\n");
+	// creating a new person for the face image
+	status = face_create_p(FACE_DEMO_PGID, body, &resp);
 
-			// creating the request body for create_p
-			json_object_put(body);
-			body = json_object_new_object();
-			json_object_object_add(body, "name", json_object_new_string(pName));
-
-			// creating a new person for the face image
-			status = face_create_p(FACE_DEMO_PGID, body, &resp);
-
-			if (!statusOk(status)) {
-				printf("Create Person fail:\n");
-				printf("%s\n", json_object_to_json_string(resp));
-				json_object_put(body);
-				return -1;
-			}
-
-			// extracting the personId from the response of create_p
-			json_object_object_get_ex(resp, FACE_PID, &tmp_obj);
-			strcpy(reg_result.pid, json_object_get_string(tmp_obj));
-
-			// building add face's param
-			param = json_object_new_object();
-			sprintf(buffer, "%d,%d,%d,%d", reg_result.rt.x, reg_result.rt.y, reg_result.rt.width, reg_result.rt.height);
-			tmp_obj = json_object_new_string(buffer);
-			memset(buffer, 0, BUFSIZ);
-			json_object_object_add(param, "targetFace", tmp_obj);
-
-			// adding face image to the person just created
-			fseek(image, 0, SEEK_SET);
-			status = face_add_face_local(image, fsize, FACE_DEMO_PGID, reg_result.pid, param, &resp);
-
-			if (!statusOk(status)) {
-				printf("Add face fail:\n");
-				printf("%s\n", json_object_to_json_string(resp));
-				return -1;
-			}
-
-			printf("Register successful\npid: %s\n", reg_result.pid);
-
-			reg_result_append(table, &reg_result);
-			memset(&reg_result, 0, sizeof(RegResult));
-		}
+	if (!statusOk(status)) {
+		printf("Create Person fail:\n");
+		printf("%s\n", json_object_to_json_string(resp));
+		json_object_put(body);
+		return -1;
 	}
 
+	// extracting the personId from the response of create_p
+	json_object_object_get_ex(resp, FACE_PID, &tmp_obj);
+	strcpy(pid, json_object_get_string(tmp_obj));
 
+	// deallocating body
+	json_object_put(body);
+
+	// adding face image to the person just created
+	status = face_add_face_local(image, fsize, FACE_DEMO_PGID, pid, NULL, &resp);
+
+	if (!statusOk(status)) {
+		printf("Add face fail:\n");
+		printf("%s\n", json_object_to_json_string(resp));
+		return -1;
+	}
 
 	// training the person group after a new person is added
 	status = face_train_pg(FACE_DEMO_PGID, &resp);
@@ -2299,9 +2310,7 @@ int demo_register(FILE * image, size_t fsize, RegResultTable * table) {
 	}
 
 	// deallocating json_objects
-	json_object_put(body);
 	json_object_put(resp);
-	json_object_put(detect_resp);
 	json_object_put(tmp_obj);
 
 	return 0;
@@ -2539,42 +2548,6 @@ int statusOk(long status) {
 	else return 0;
 }
 
-int reg_result_append(RegResultTable * table, RegResult * item) {
-	RegResult * buffer = NULL;	// buffer for the new array memory
-	errno = 0;						// for realloc error checking
-
-	if (!item) {
-		fprintf(stderr, "Error: item can't be null\n");
-		return -1;
-	}
-
-	buffer = table->resultArr;
-
-	table->length++;				// update table length
-
-	buffer = realloc(buffer, sizeof(RegResult) * table->length);
-
-	// error checking for realloc
-	if (errno) {
-		fprintf(stderr, "Realloc Error: %s\n", strerror(errno));
-		reg_result_table_free(table);
-		return -1;
-	}
-
-	// copy res to the end of resultArr
-	memcpy(buffer + table->length - 1, item, sizeof(RegResult));
-
-	// error checking for memcpy
-	if (errno) {
-		fprintf(stderr, "Memcpy Error: %s\n", strerror(errno));
-		return -1;
-	}
-
-	table->resultArr = buffer;		// update resultArr
-
-	return 0;
-}
-
 int detect_result_append(DetectResultTable * table, DetectResult * item) {
 	DetectResult * buffer = NULL;	// buffer for the new array memory
 	errno = 0;						// for realloc error checking
@@ -2645,21 +2618,6 @@ int ident_result_append(IdentResultTable * table, IdentResult * item) {
 	table->resultArr = buffer;		// update resultArr
 
 	return 0;
-}
-
-void reg_result_table_free(RegResultTable * table) {
-	if (!table) return;
-
-	if (!(table->resultArr)) {
-		free(table);
-		return;
-	}
-	else {
-		free(table->resultArr);
-		free(table);
-	}
-
-	return;
 }
 
 void detect_result_table_free(DetectResultTable * table) {

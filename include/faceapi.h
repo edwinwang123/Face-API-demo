@@ -31,23 +31,13 @@ typedef struct tagAttr{
 	double age;
 }Attr;
 
-typedef struct tagRegResult {
-	Rect rt;
-	char pid[BUFSIZ];
-} RegResult;
-
-typedef struct tagRegResultTable {
-	RegResult * resultArr;
-	int length;
-} RegResultTable;
-
 typedef struct tagDetectResult {
 	Rect rt;
 	Attr attr;
 } DetectResult;
 
 typedef struct tagDetectResultTable {
-	DetectResult * resultArr;	// an array of result
+	DetectResult * resultArr;	// an array of FaceResult
 	int length;					// length of the table
 } DetectResultTable;
 
@@ -100,16 +90,13 @@ extern "C" {
 	int face_login(char * region, char * key);
 	/* registers the face as a new person under the default persongroup and pass
 	   its face id in fid */
-	int demo_register(FILE * image, size_t fsize, RegResultTable *table);
+	int demo_register(FILE * image, size_t fsize, char * pid);
 
 	/* detects print the default attributes of a face */
 	int demo_detect(FILE * image, size_t fsize, DetectResultTable *table);
 
 	/* identify the face image from the default persongroup */
 	int demo_identify(FILE * image, size_t fsize, IdentResultTable *table);
-
-	/* frees RegResultTable */
-	void reg_result_table_free(RegResultTable * table);
 
 	/* frees DetectResultTable */
 	void detect_result_table_free(DetectResultTable * table);
@@ -121,13 +108,11 @@ extern "C" {
 extern int face_login(char * region, char * key);
         /* registers the face as a new person under the default persongroup and pass
            its face id in fid */
-extern int demo_register(FILE * image, size_t fsize, RegResultTable *table);
+extern int demo_register(FILE * image, size_t fsize, char * pid);
         /* detects print the default attributes of a face */
 extern  int demo_detect(FILE * image, size_t fsize, DetectResultTable *table);
 	/* identify the face image from the default persongroup */
 extern  int demo_identify(FILE * image, size_t fsize, IdentResultTable *table);
-	/* frees RegResultTable */
-extern	void reg_result_table_free(RegResultTable * table);
 	/* frees DetectResultTable */
 extern	void detect_result_table_free(DetectResultTable * table);
 	/* frees IdentResultTable */

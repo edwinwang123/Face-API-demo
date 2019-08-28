@@ -14,7 +14,7 @@ int main(){
 	if (!video.isOpened()){
 		return -1;
 	}
-//	Size videoSize = Size((int)video.get(CV_CAP_PROP_FRAME_WIDTH),(int)video.get(CV_CAP_PROP_FRAME_HEIGHT));
+	Size videoSize = Size((int)video.get(CV_CAP_PROP_FRAME_WIDTH),(int)video.get(CV_CAP_PROP_FRAME_HEIGHT));
 	namedWindow("video demo", CV_WINDOW_AUTOSIZE);
 	namedWindow(CAPTURE_WINDOW, CV_WINDOW_AUTOSIZE);
 	Mat videoFrame;
@@ -81,36 +81,22 @@ int main(){
 				{
 					FILE * file = NULL;
 					struct stat file_info = {0};
-					RegResultTable * reg_result_table = (RegResultTable *)calloc(1, sizeof(RegResultTable));
-					if (reg_result_table == NULL) {
-						printf("RegResultTable calloc failed.\n");
-						break;
-					}
-					imwrite("reg.jpg", videoFrame);
-					if (stat("reg.jpg", &file_info)) {
+					char pid[BUFSIZ] = {0};
+					imwrite("register.jpg", videoFrame);
+					if (stat("register.jpg", &file_info)) {
 						printf("failed(%s)\n", strerror(errno));
 						break;
 					}
-					file = fopen("reg.jpg", "rb");
-					demo_register(file, file_info.st_size, reg_result_table);
-					RegResult * arr = reg_result_table->resultArr;
-					int len = reg_result_table->length;
-					char info[6] = {0};
-					for (int i = 0; i < len; ++i) {
-						// draw rectangle around face
-						rectangle(videoFrame, Point((arr + i)->rt.x, (arr + i)->rt.y), Point((arr + i)->rt.x + (arr + i)->rt.width - 1, (arr + i)->rt.y + (arr + i)->rt.height - 1), Scalar(255, 0, 0), 5);
-
-						// extract last 5 character of the personId
-						snprintf(info, 6, "%s", (arr + i)->pid + strlen((arr + i)->pid) - 5);
-
-						// write face information on top of the rectangle
-						putText(videoFrame, info, Point((arr + i)->rt.x, (arr + i)->rt.y - 5), FONT_HERSHEY_PLAIN, 2.0, Scalar(255, 0, 0), 2);
+					file = fopen("register.jpg", "rb");
+					demo_register(file, file_info.st_size, pid);
+					if (*pid) {
+						printf("Register succeeded\npid: %s\n", pid);
 					}
-					imshow(CAPTURE_WINDOW, videoFrame);
-
+					else {
+						printf("Register failed\n");
+					}
 					pclose(file);
-					system("rm reg.jpg");
-					reg_result_table_free(reg_result_table);
+					system("rm register.jpg");
 				}
 				break;
 
@@ -144,7 +130,7 @@ int main(){
 						if (!(arr + i)->pid || !(arr + i)->confidence) sprintf(info, "No result");
 						else {
 							// extract face information
-							snprintf(pid_char, 6, "%s", (arr + i)->pid + strlen((arr + i)->pid) - 5);
+							snprintf(pid_char, 6, "%s", (arr + i)->pid);
 							sprintf(info, "%s,%.2lf", pid_char, (arr + i)->confidence);
 						}
 
@@ -159,7 +145,7 @@ int main(){
 				}
 				break;
 
-			// Key ";"
+			// Key ";" exits program
 			case ';':
 				bIsStop = true;	
 				break;
