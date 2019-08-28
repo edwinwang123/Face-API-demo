@@ -6,18 +6,128 @@ static char region[BUFSIZ];
 static char key[BUFSIZ];
 static char login = 0;		// check if user have logged in
 
+Queue * request_queue;
+Queue * response_queue;
+
+sem_t request_counter;
+pthread_t request_thread;
+
 void setUriParam(CURLU * curlu, const char * name, struct json_object * value);
 void setUriBase(CURLU * curlu, const char * base);
 int statusOk(long status);
-int reg_result_append(RegResultTable * table, RegResult * item);
-int detect_result_append(DetectResultTable * table, DetectResult * item);
-int ident_result_append(IdentResultTable * table, IdentResult * item);
+int reg_result_append(Table * table, void * item);
+int detect_result_append(Table * table, void * item);
+int ident_result_append(Table * table, void * item);
+Queue * queue_new(QueueType type, unsigned int capacity);
+void queue_free(Queue * queue);
+int queue_isempty(Queue * queue);
+int queue_isfull(Queue * queue);
+void * queue_rear(Queue * queue);
+void * queue_front(Queue * queue);
+int dequeue(Queue * queue);
+int enqueue(Queue * queue, void * item);
+void * request();
 
 typedef struct ReadData
 {
 	char * content;			// this is the content of the readData
 	size_t length;			// this is the length of the readData
 } ReadData;
+
+void face_init() {
+	QueueType type = FACE_QUEUETYPE_REQUEST;
+	request_queue = queue_new(type, FACE_QUEUE_CAPACITY);
+	type = FACE_QUEUETYPE_RESPONSE;
+	response_queue = queue_new(type, FACE_QUEUE_CAPACITY);
+	sem_init(&request_counter, 0, 0);
+	pthread_create(&request_thread, NULL, request, NULL);
+}
+
+void face_cleanup() {
+	Request rqst = {
+		.rqst_type = FACE_RQSTTYPE_END,
+		.file = NULL,
+		.fsize = 0,
+		.table = NULL,
+		.rqst_func = NULL
+	};
+
+	// wait and send end signal if request_queue is full
+	while (enqueue(request_queue, &rqst)) {
+		sleep(1);
+	}
+	sem_post(&request_counter);
+
+	while (1) {
+		if (((Response *)(queue_rear(response_queue)))->resp_type == FACE_RQSTTYPE_END) {
+			queue_free(request_queue);
+			queue_free(response_queue);
+			break;
+		}
+		sleep(1);
+	}
+}
+
+void * request() {
+
+	// detach this thread from main thread
+	pthread_detach(pthread_self());
+
+	while(1) {
+
+		// thread will only be activated when sem_post is called
+		sem_wait(&request_counter);
+
+		// retrieve latest request from request_queue
+		Request * rqst = queue_rear(request_queue);
+
+		// send program end signal
+		if (rqst->rqst_type == FACE_RQSTTYPE_END) {
+			Response resp = {
+				.resp_type = rqst->rqst_type,
+				.table = NULL,
+				.file = NULL
+			};
+
+			// wait and pass on end signal if response_queue is full
+			while (enqueue(response_queue, &resp)) {
+				sleep(1);
+			}
+			break;	// closes this thread
+		}
+
+		// call request function and pass the result to response_queue
+		if ((*rqst->rqst_func)(rqst->file, rqst->fsize, rqst->table)) {
+			// if request function failed, pop it from request_queue
+			// and continue
+			dequeue(request_queue);
+			continue;
+		}
+
+		// push result to response_queue
+		Response resp = {
+			.resp_type = rqst->rqst_type,
+			.table = rqst->table,
+			.file = rqst->file
+		};
+		while (enqueue(response_queue, &resp)) {
+			sleep(1);
+		}
+
+		// pop the request from request_queue
+		dequeue(request_queue);
+	}
+	pthread_exit(NULL);
+}
+
+Response * getResponse() {
+	if (queue_isempty(response_queue)) {
+		return NULL;
+	}
+	Response * resp = queue_rear(response_queue);
+	dequeue(response_queue);
+	return resp;
+}
 
 /**
  * Description:
@@ -2191,7 +2301,7 @@ long face_list_p(char * pgid, struct json_object ** resp) {
 	return ret;
 }
 
-int demo_register(FILE * image, size_t fsize, RegResultTable * table) {
+int _demo_register(FILE * image, size_t fsize, Table * table) {
 	char * pgName = "demo_group_1";			// default persongroup name	
 	char * pName = "demo_person";			// default person name
 	json_object * body;						// request body
@@ -2282,7 +2392,7 @@ int demo_register(FILE * image, size_t fsize, RegResultTable * table) {
 
 			printf("Register successful\npid: %s\n", reg_result.pid);
 
-			reg_result_append(table, &reg_result);
+			table->append(table, &reg_result);
 			memset(&reg_result, 0, sizeof(RegResult));
 		}
 	}
@@ -2307,7 +2417,7 @@ int demo_register(FILE * image, size_t fsize, RegResultTable * table) {
 	return 0;
 }
 
-int demo_detect(FILE * image, size_t fsize, DetectResultTable * table) {
+int _demo_detect(FILE * image, size_t fsize, Table * table) {
 	json_object * param = NULL;			// request paramete
 	json_object * resp = NULL; 			// response from api call
 	int flag;							// flag for printing json
@@ -2315,6 +2425,7 @@ int demo_detect(FILE * image, size_t fsize, DetectResultTable * table) {
 	DetectResult detect_result = {0};	// stores detection result
 	int i;								// foreach iterator
 	int len;							// response json array length
+	int ret = 0;						// return code
 
 	// setting preferred print option
 	flag = JSON_C_TO_STRING_PRETTY;
@@ -2347,7 +2458,7 @@ int demo_detect(FILE * image, size_t fsize, DetectResultTable * table) {
 						detect_result.rt.y = json_object_get_int(top);
 						detect_result.rt.width = json_object_get_int(width);
 						detect_result.rt.height = json_object_get_int(height);
-					}
+				}
 					else
 						printf("top or left or width or height is null\n");
 				}
@@ -2371,12 +2482,14 @@ int demo_detect(FILE * image, size_t fsize, DetectResultTable * table) {
 			else
 				printf("val is null\n");
 
-			detect_result_append(table, &detect_result);
+			table->append(table, &detect_result);
 			memset(&detect_result, 0, sizeof(DetectResult));
 		}
 	}
-	else
+	else {
 		printf("HTTP status code indicate error/resp or face_result is null\n");
+		ret = -1;
+	}
 
 	// printing the result of detect
 	printf(FACE_DEMO_PRINT_FACE, json_object_to_json_string_ext(resp, flag));
@@ -2384,10 +2497,10 @@ int demo_detect(FILE * image, size_t fsize, DetectResultTable * table) {
 	// deallocating json_objects
 	json_object_put(param);
 	json_object_put(resp);
-	return 0;
+	return ret;
 }
 
-int demo_identify(FILE * image, size_t fsize, IdentResultTable * table) {
+int _demo_identify(FILE * image, size_t fsize, Table * table) {
 	json_object * body = NULL;				// request body
 	json_object * tmp_obj = NULL;			// temporary json object
 	json_object * tmp_obj2 = NULL;			// second temp json object
@@ -2493,7 +2606,7 @@ int demo_identify(FILE * image, size_t fsize, IdentResultTable * table) {
 			else
 				printf("ident_mem is null\n");
 
-			ident_result_append(table, &ident_result);
+			table->append(table, &ident_result);
 			memset(&ident_result, 0, sizeof(IdentResult));
 		}
 	}
@@ -2539,16 +2652,14 @@ int statusOk(long status) {
 	else return 0;
 }
 
-int reg_result_append(RegResultTable * table, RegResult * item) {
-	RegResult * buffer = NULL;	// buffer for the new array memory
+int reg_result_append(Table * table, void * item) {
+	RegResult * buffer = (RegResult *)table->arr;
 	errno = 0;						// for realloc error checking
 
 	if (!item) {
 		fprintf(stderr, "Error: item can't be null\n");
 		return -1;
 	}
-
-	buffer = table->resultArr;
 
 	table->length++;				// update table length
 
@@ -2557,7 +2668,7 @@ int reg_result_append(RegResultTable * table, RegResult * item) {
 	// error checking for realloc
 	if (errno) {
 		fprintf(stderr, "Realloc Error: %s\n", strerror(errno));
-		reg_result_table_free(table);
+		table_free(table);
 		return -1;
 	}
 
@@ -2570,21 +2681,19 @@ int reg_result_append(RegResultTable * table, RegResult * item) {
 		return -1;
 	}
 
-	table->resultArr = buffer;		// update resultArr
+	table->arr = buffer;			// update resultArr
 
 	return 0;
 }
 
-int detect_result_append(DetectResultTable * table, DetectResult * item) {
-	DetectResult * buffer = NULL;	// buffer for the new array memory
+int detect_result_append(Table * table, void * item) {
+	DetectResult * buffer = (DetectResult *)table->arr;
 	errno = 0;						// for realloc error checking
 
 	if (!item) {
 		fprintf(stderr, "Error: item can't be null\n");
 		return -1;
 	}
-
-	buffer = table->resultArr;
 
 	table->length++;				// update table length
 
@@ -2593,11 +2702,11 @@ int detect_result_append(DetectResultTable * table, DetectResult * item) {
 	// error checking for realloc
 	if (errno) {
 		fprintf(stderr, "Realloc Error: %s\n", strerror(errno));
-		detect_result_table_free(table);
+		table_free(table);
 		return -1;
 	}
 
-	// copy res to the end of resultArr
+	// copy item to the end of resultArr
 	memcpy(buffer + table->length - 1, item, sizeof(DetectResult));
 
 	// error checking for memcpy
@@ -2606,21 +2715,19 @@ int detect_result_append(DetectResultTable * table, DetectResult * item) {
 		return -1;
 	}
 
-	table->resultArr = buffer;		// update resultArr
+	table->arr = buffer;			// update resultArr
 
 	return 0;
 }
 
-int ident_result_append(IdentResultTable * table, IdentResult * item) {
-	IdentResult * buffer = NULL;	// buffer for the new array memory
+int ident_result_append(Table * table, void * item) {
+	IdentResult * buffer = (IdentResult *)table->arr;
 	errno = 0;						// for realloc error checking
 
 	if (!item) {
 		fprintf(stderr, "Error: item can't be null\n");
 		return -1;
 	}
-
-	buffer = table->resultArr;
 
 	table->length++;				// update table length
 
@@ -2629,7 +2736,7 @@ int ident_result_append(IdentResultTable * table, IdentResult * item) {
 	// error checking for realloc
 	if (errno) {
 		fprintf(stderr, "Realloc Error: %s\n", strerror(errno));
-		ident_result_table_free(table);
+		table_free(table);
 		return -1;
 	}
 
@@ -2642,52 +2749,211 @@ int ident_result_append(IdentResultTable * table, IdentResult * item) {
 		return -1;
 	}
 
-	table->resultArr = buffer;		// update resultArr
+	table->arr = buffer;			// update resultArr
 
 	return 0;
 }
 
-void reg_result_table_free(RegResultTable * table) {
+void table_free(Table * table) {
 	if (!table) return;
 
-	if (!(table->resultArr)) {
+	if (!(table->arr)) {
 		free(table);
 		return;
 	}
+
 	else {
-		free(table->resultArr);
+		free(table->arr);
 		free(table);
 	}
 
 	return;
 }
 
-void detect_result_table_free(DetectResultTable * table) {
-	if (!table) return;
-
-	if (!(table->resultArr)) {
-		free(table);
-		return;
-	}
-	else {
-		free(table->resultArr);
-		free(table);
+Table * detect_result_table_new() {
+	errno = 0;
+	Table * table = (Table *)calloc(1, sizeof(Table));
+	if (errno) {
+		fprintf(stderr, "Calloc Error: %s\n", strerror(errno));
+		return NULL;
 	}
 
-	return;
+	table->append = detect_result_append;
+	return table;
 }
 
-void ident_result_table_free(IdentResultTable * table) {
-	if (!table) return;
-
-	if (!(table->resultArr)) {
-		free(table);
-		return;
-	}
-	else {
-		free(table->resultArr);
-		free(table);
+Table * reg_result_table_new() {
+	errno = 0;
+	Table * table = (Table *)calloc(1, sizeof(Table));
+	if (errno) {
+		fprintf(stderr, "Calloc Error: %s\n", strerror(errno));
+		return NULL;
 	}
 
-	return;
+	table->append = reg_result_append;
+	return table;
+}
+
+Table * ident_result_table_new() {
+	errno = 0;
+	Table * table = (Table *)calloc(1, sizeof(Table));
+	if (errno) {
+		fprintf(stderr, "Calloc Error: %s\n", strerror(errno));
+		return NULL;
+	}
+
+	table->append = ident_result_append;
+	return table;
+}
+
+int demo_detect(FILE * image, size_t fsize, Table * table) {
+	Request rqst = {
+		.rqst_type = 'd',
+		.file = image,
+		.fsize = fsize,
+		.table = table,
+		.rqst_func = _demo_detect
+	};
+	if (enqueue(request_queue, &rqst)) {
+		fprintf(stderr, "Request queue full\n");
+		return -1;
+	}
+	sem_post(&request_counter);
+	return 0;
+}
+
+int demo_register(FILE * image, size_t fsize, Table * table) {
+	Request rqst = {
+		.rqst_type = 'r',
+		.file = image,
+		.fsize = fsize,
+		.table = table,
+		.rqst_func = _demo_register
+	};
+	if (enqueue(request_queue, &rqst)) {
+		fprintf(stderr, "Request queue full\n");
+		return -1;
+	}
+	sem_post(&request_counter);
+	return 0;
+}
+
+int demo_identify(FILE * image, size_t fsize, Table * table) {
+	Request rqst = {
+		.rqst_type = 'i',
+		.file = image,
+		.fsize = fsize,
+		.table = table,
+		.rqst_func = _demo_identify
+	};
+	if (enqueue(request_queue, &rqst)) {
+		fprintf(stderr, "Request queue full\n");
+		return -1;
+	}
+	sem_post(&request_counter);
+	return 0;
+}
+
+Queue * queue_new(QueueType type, unsigned int capacity) {
+	Queue * new_queue = (Queue *)calloc(1, sizeof(Queue));
+	new_queue->capacity = capacity;
+	new_queue->rear = capacity - 1;
+	new_queue->type = type;
+	switch (type) {
+		case FACE_QUEUETYPE_REQUEST:
+			new_queue->arr.rqstArr = (Request *)calloc((int)capacity, sizeof(Request));
+			break;
+		case FACE_QUEUETYPE_RESPONSE:
+			new_queue->arr.respArr = (Response *)calloc((int)capacity, sizeof(Response));
+			break;
+		default:
+			fprintf(stderr, "Error: Queue type not supported\n");
+			free(new_queue);
+			break;
+	}
+
+	return new_queue;
+}
+
+void queue_free(Queue * queue) {
+	switch (queue->type) {
+		case FACE_QUEUETYPE_REQUEST:
+			free(queue->arr.rqstArr);
+			break;
+		case FACE_QUEUETYPE_RESPONSE:
+			free(queue->arr.respArr);
+			break;
+		default:
+			fprintf(stderr, "Error: Queue type not supported\n");
+			return;
+	}
+	free(queue);
+}
+
+int queue_isempty(Queue * queue) {
+	if (queue->size) {
+		return 0;
+	}
+	return 1;
+}
+
+int queue_isfull(Queue * queue) {
+	if ((unsigned)(queue->size) == queue->capacity) {
+		return 1;
+	}
+	return 0;
+}
+
+void * queue_rear(Queue * queue) {
+	if (queue_isempty(queue)) return NULL;
+	switch (queue->type) {
+		case FACE_QUEUETYPE_REQUEST:
+			return (void *)(queue->arr.rqstArr + queue->rear);
+		case FACE_QUEUETYPE_RESPONSE:
+			return (void *)(queue->arr.respArr + queue->rear);
+	}
+	return NULL;
+}
+
+void * queue_front(Queue * queue) {
+	if (queue_isempty(queue)) return NULL;
+	switch (queue->type) {
+		case FACE_QUEUETYPE_REQUEST:
+			return (void *)(queue->arr.rqstArr + queue->front);
+		case FACE_QUEUETYPE_RESPONSE:
+			return (void *)(queue->arr.respArr + queue->front);
+	}
+	return NULL;
+}
+
+int dequeue(Queue * queue) {
+	if (queue_isempty(queue)) return -1;
+
+	queue->front = (queue->front + 1) % queue->capacity;
+	queue->size = queue->size - 1;
+	return 0;
+}
+
+int enqueue(Queue * queue, void * item) {
+	if (queue_isfull(queue)) return -1;
+	Request * rqst;
+	Response * resp;
+
+	switch (queue->type) {
+		case FACE_QUEUETYPE_REQUEST:
+			rqst = (Request *)item;
+			queue->rear = (queue->rear + 1) % queue->capacity;
+			memcpy(queue->arr.rqstArr + queue->rear, rqst, sizeof(Request));
+			break;
+		case FACE_QUEUETYPE_RESPONSE:
+			resp = (Response *)item;
+			queue->rear = (queue->rear + 1) % queue->capacity;
+			memcpy(queue->arr.respArr + queue->rear, resp, sizeof(Response));
+			break;
+		default:
+			fprintf(stderr, "Error: Queue type not supported\n");
+			return -1;
+	}
+	queue->size = queue->size + 1;
+	return 0;
 }

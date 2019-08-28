@@ -52,4 +52,9 @@
 #define FACE_DEMO_DETECT_PARAM "returnFaceAttributes"
 #define FACE_DEMO_PGID "demo_group"
 
+// queue constants
+
+#define FACE_QUEUE_CAPACITY 10
+#define FACE_RQSTTYPE_END ';'
+
 #endif /* _FACEAPI_STRINGS_H */

@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include <curl/curl.h>
 #include <json/json.h>
 #include <sys/stat.h>
@@ -62,6 +64,47 @@ typedef struct tagIdentResultTable {
 	int length;
 } IdentResultTable;
 
+typedef struct faceTable Table;
+
+struct faceTable {
+	void * arr;
+	int length;
+	int (*append)(Table *, void *);
+};
+
+typedef int (*RequestFunc)(FILE *, size_t, Table *);
+
+typedef struct faceRequest {
+	char rqst_type;
+	FILE * file;
+	size_t fsize;
+	Table * table;
+	RequestFunc rqst_func;
+} Request;
+
+typedef struct faceResponse {
+	char resp_type;
+	Table * table;
+	FILE * file;
+} Response;
+
+typedef enum faceQueueType {
+	FACE_QUEUETYPE_REQUEST,
+	FACE_QUEUETYPE_RESPONSE
+} QueueType;
+
+typedef union faceQueueArr {
+	Request * rqstArr;
+	Response * respArr;
+} QueueArr;
+
+typedef struct faceQueue {
+	QueueType type;
+	QueueArr arr;
+	int front, rear, size;
+	unsigned int capacity;
+} Queue;
+
 
 
 /* Main functions */
@@ -97,41 +140,64 @@ int face_search_p(char * pgid, char * name, char * value);
 
 #ifdef __cplusplus
 extern "C" {
+	/* initialize thread, semaphore, and workQueue */
+	void face_init();
+
+	/* close off thread and free workQueue */
+	void face_cleanup();
+
+	/* enter account information */
 	int face_login(char * region, char * key);
+
 	/* registers the face as a new person under the default persongroup and pass
 	   its face id in fid */
-	int demo_register(FILE * image, size_t fsize, RegResultTable *table);
+	int demo_register(FILE * image, size_t fsize, Table *table);
 
 	/* detects print the default attributes of a face */
-	int demo_detect(FILE * image, size_t fsize, DetectResultTable *table);
+	int demo_detect(FILE * image, size_t fsize, Table *table);
 
 	/* identify the face image from the default persongroup */
-	int demo_identify(FILE * image, size_t fsize, IdentResultTable *table);
+	int demo_identify(FILE * image, size_t fsize, Table *table);
 
-	/* frees RegResultTable */
-	void reg_result_table_free(RegResultTable * table);
+	/* checks if response queue has item and return the item if so */
+	Response * getResponse();
 
-	/* frees DetectResultTable */
-	void detect_result_table_free(DetectResultTable * table);
+	/* creates a Table for DetectResult */
+	Table * detect_result_table_new();
 
-	/* frees IdentResultTable */
-	void ident_result_table_free(IdentResultTable * table);
+	/* creates a Table for RegResult */
+	Table * reg_result_table_new();
+
+	/* creates a Table for IdentResult */
+	Table * ident_result_table_new();
+
+	/* frees Table */
+	void table_free(Table * table);
 }
 #else
-extern int face_login(char * region, char * key);
+	/* initialize thread, semaphore, and workQueue */
+extern	void face_init();
+	/* close off thread and free workQueue */
+extern	void face_cleanup();
+	/* enter account information */
+extern	int face_login(char * region, char * key);
         /* registers the face as a new person under the default persongroup and pass
            its face id in fid */
-extern int demo_register(FILE * image, size_t fsize, RegResultTable *table);
+extern	int demo_register(FILE * image, size_t fsize, Table *table);
         /* detects print the default attributes of a face */
-extern  int demo_detect(FILE * image, size_t fsize, DetectResultTable *table);
+extern  int demo_detect(FILE * image, size_t fsize, Table *table);
 	/* identify the face image from the default persongroup */
-extern  int demo_identify(FILE * image, size_t fsize, IdentResultTable *table);
-	/* frees RegResultTable */
-extern	void reg_result_table_free(RegResultTable * table);
-	/* frees DetectResultTable */
-extern	void detect_result_table_free(DetectResultTable * table);
-	/* frees IdentResultTable */
-extern	void ident_result_table_free(IdentResultTable * table);
+extern  int demo_identify(FILE * image, size_t fsize, Table *table);
+	/* checks if response queue has item and return the item if so */
+extern	Response * getResponse();
+	/* creates a Table for DetectResult */
+extern	Table * detect_result_table_new();
+	/* creates a Table for RegResult */
+extern	Table * reg_result_table_new();
+	/* creates a Table for IdentResult */
+extern	Table * ident_result_table_new();
+	/* frees Table */
+extern	void table_free(Table * table);
 #endif
 
 #endif /* FACEAPI_H */
