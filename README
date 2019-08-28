@@ -1,0 +1,80 @@
+/*
+ * File Name: README
+ * File Description: Describe how to call the faceApi library
+ * Author: Edwin Wang
+ * Last Updated: 2019/08/06
+ */
+
+Prerequisite Software:
+curl
+
+install steps on ubuntu:
+Use the following commands
+	sudo apt-get update
+	sudo apt install curl
+
+Prerequisite Libraries:
+libcurl
+json-c
+
+install steps on ubuntu:
+json-c:
+Use the following command
+	sudo apt-get install libjson0 libjson0-dev
+
+libcurl:
+1) Download latest version of libcurl (developed using curl-7.65.3)
+   in https://curl.haxx.se/download.html
+2) Extract the downloaded file and enter the extracted directory
+3) Use the following commands to install libcurl
+	./configure
+	make
+	make test (optional, usually takes a while)
+	make install (you may need to sudo this)
+
+How to compile program?
+make
+
+How to run program?
+execute the file in Face-API-Master/bin/innofaceguard
+
+How to use the program?
+When the program is up and running,
+	- 'd' or 'D' key will detect all the faces captured by the webcam. The
+	  program will locate the face with a rectangle and print the detected
+	  gender and age on top of the face.
+	- 'r' or 'R' key will register all the faces captured by the webcam to the
+	  database. The personId of the face will be printed on the terminal
+	  if the registration is successful. The last 5 characters of the personId
+	  will also be printed on top of the faces.
+	- 'i' or 'I' key will identify all the faces captured by the webcam.
+	  The program will locate the identified face with a rectangle and print
+	  the last 5 characters of the matched pid and the confidence on top
+	  of the face.
+	- ';' key will end the program.
+
+Note:
+		This is compiled using pkg-config. If compile fails, enter command
+
+			pkg-config --list-all
+	  
+		and check if libcurl and json is included. Also use
+
+			pkg-confign --modversion <library name>
+
+		to check if the .pc file is up-to-date. If both of these checkout,
+		you might want to use ldd command to check which library the program
+		is linked to during runtime. If the program is not linking to the
+		desired library, copy the library you want to the location shown by
+		ldd.
+
+Bugs:
+		1) Valgrind might throw 3 errors each stating that 8 uninitialized bytes
+		are used. This is OpenSSL's bug and is patched in the 1.1.0 version.
+		Details about this can be found in this link:
+
+			https://github.com/curl/curl/issues/1117
+
+		2) When calling curl_url_get(), developer might need to set the 
+		CURLU_NON_SUPPORT_SCHEME flag for the curl_url_get to return the
+		url.

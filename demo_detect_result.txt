@@ -1,0 +1,28 @@
+{
+    "faceId":"4e6181cd-8a2c-407f-90f5-19f90187736e",
+    "faceRectangle":{
+      "top":141,
+      "left":249,
+      "width":205,
+      "height":205
+    },
+    "faceAttributes":{
+      "gender":"male",
+      "age":31.000000,
+      "emotion":{
+        "anger":0.000000,
+        "contempt":0.003000,
+        "disgust":0.000000,
+        "fear":0.000000,
+        "happiness":0.000000,
+        "neutral":0.997000,
+        "sadness":0.000000,
+        "surprise":0.000000
+      },
+      "makeup":{
+        "eyeMakeup":false,
+        "lipMakeup":false
+      }
+    }
+  }
+
