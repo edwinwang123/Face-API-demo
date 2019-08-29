@@ -11,6 +11,7 @@ Queue * response_queue;
 
 sem_t request_counter;
 pthread_t request_thread;
+pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
 
 void setUriParam(CURLU * curlu, const char * name, struct json_object * value);
 void setUriBase(CURLU * curlu, const char * base);
@@ -58,7 +59,12 @@ void face_cleanup() {
 	}
 	sem_post(&request_counter);
 
+	// testing
+	printf("Test cleanup\n");
+
 	while (1) {
+		// testing
+		printf("test cleanup while loop\n");
 		if (((Response *)(queue_rear(response_queue)))->resp_type == FACE_RQSTTYPE_END) {
 			queue_free(request_queue);
 			queue_free(response_queue);
@@ -2515,8 +2521,18 @@ int _demo_identify(FILE * image, size_t fsize, Table * table) {
 	// detect the face image to acquire its faceId
 	detect_status = face_detect_local(image, fsize, NULL, &detect_resp);
 
+	// testing
+	printf("test _demo_identify\n");
+
 	// set the length of the response array
-	len = json_object_array_length(detect_resp);
+	if (statusOk(detect_status)) {
+		len = json_object_array_length(detect_resp);
+	}
+	else {
+		// show that face_detect_local returned error
+		fprintf(stderr, "face_detect_local fail\n");
+		return -1;
+	}
 
 	// creating the "faceIds" array in the request body
 	faceIds = json_object_new_array();
@@ -2876,6 +2892,10 @@ Queue * queue_new(QueueType type, unsigned int capacity) {
 }
 
 void queue_free(Queue * queue) {
+
+	// mutex lock
+	pthread_mutex_lock(&queue_lock);
+
 	switch (queue->type) {
 		case FACE_QUEUETYPE_REQUEST:
 			free(queue->arr.rqstArr);
@@ -2888,6 +2908,11 @@ void queue_free(Queue * queue) {
 			return;
 	}
 	free(queue);
+
+	// mutex unlock
+	pthread_mutex_unlock(&queue_lock);
+
+	return;
 }
 
 int queue_isempty(Queue * queue) {
@@ -2905,6 +2930,7 @@ int queue_isfull(Queue * queue) {
 }
 
 void * queue_rear(Queue * queue) {
+
 	if (queue_isempty(queue)) return NULL;
 	switch (queue->type) {
 		case FACE_QUEUETYPE_REQUEST:
@@ -2912,10 +2938,12 @@ void * queue_rear(Queue * queue) {
 		case FACE_QUEUETYPE_RESPONSE:
 			return (void *)(queue->arr.respArr + queue->rear);
 	}
+
 	return NULL;
 }
 
 void * queue_front(Queue * queue) {
+
 	if (queue_isempty(queue)) return NULL;
 	switch (queue->type) {
 		case FACE_QUEUETYPE_REQUEST:
@@ -2923,19 +2951,47 @@ void * queue_front(Queue * queue) {
 		case FACE_QUEUETYPE_RESPONSE:
 			return (void *)(queue->arr.respArr + queue->front);
 	}
+
 	return NULL;
 }
 
 int dequeue(Queue * queue) {
-	if (queue_isempty(queue)) return -1;
+
+	// mutex lock
+	printf("[waiting] dequeue thread id: %.4x\n", pthread_self());
+	pthread_mutex_lock(&queue_lock);
+
+	printf("[entry] dequeue thread id: %.4x\n", pthread_self());
+
+	if (queue_isempty(queue)) {
+		pthread_mutex_unlock(&queue_lock);
+		printf("[exit] dequeue thread id: %.4x\n", pthread_self());
+		return -1;
+	}
 
 	queue->front = (queue->front + 1) % queue->capacity;
 	queue->size = queue->size - 1;
+
+	// mutex unlock
+	pthread_mutex_unlock(&queue_lock);
+	printf("[exit] dequeue thread id: %.4x\n", pthread_self());
+
 	return 0;
 }
 
 int enqueue(Queue * queue, void * item) {
-	if (queue_isfull(queue)) return -1;
+
+	// mutex lock
+	printf("[waiting] enqueue thread id: %.4x\n", pthread_self());
+	pthread_mutex_lock(&queue_lock);
+
+	printf("[entry] enqueue thread id: %.4x\n", pthread_self());
+
+	if (queue_isfull(queue)) {
+		pthread_mutex_unlock(&queue_lock);
+		printf("[exit] enqueue thread id: %.4x\n", pthread_self());
+		return -1;
+	}
 	Request * rqst;
 	Response * resp;
 
@@ -2955,5 +3011,10 @@ int enqueue(Queue * queue, void * item) {
 			return -1;
 	}
 	queue->size = queue->size + 1;
+
+	// mutex unlock
+	printf("[exit] enqueue thread id: %.4x\n", pthread_self());
+	pthread_mutex_unlock(&queue_lock);
+
 	return 0;
 }
